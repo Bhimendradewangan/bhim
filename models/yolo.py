@@ -518,8 +518,14 @@ class Panoptic(Detect):
         return (torch.cat([x, mc], 1), p, s) if self.export else (torch.cat([x[0], mc], 1), (x[1], mc, p, s))
     
 
+from torch import nn
+
 class BaseModel(nn.Module):
     # YOLO base model
+    def __init__(self, in_channels, reduction_ratio=8):
+        super(BaseModel, self).__init__()
+        self.attention = SelfAttention(in_channels, reduction_ratio)
+
     def forward(self, x, profile=False, visualize=False):
         return self._forward_once(x, profile, visualize)  # single-scale inference, train
 
@@ -531,17 +537,18 @@ class BaseModel(nn.Module):
             if profile:
                 self._profile_one_layer(m, x, dt)
             x = m(x)  # run
+
+
             
-            # Add attention mechanism here
+            # Apply self-attention mechanism after Conv layers
             if isinstance(m, Conv):
-                # Apply self-attention mechanism after Conv layers
                 x = self.attention(x)
 
             y.append(x if m.i in self.save else None)  # save output
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
         return x
-
+    
 
     def _profile_one_layer(self, m, x, dt):
         c = m == self.model[-1]  # is final layer, copy input as inplace fix
@@ -583,6 +590,37 @@ class BaseModel(nn.Module):
             # m.grid = list(map(fn, m.grid))
         return self
 
+from torch import nn
+import torch
+
+class SelfAttention(nn.Module):
+    def __init__(self, in_channels, reduction_ratio=8):
+        super(SelfAttention, self).__init__()
+
+        self.query_conv = nn.Conv2d(in_channels, in_channels // reduction_ratio, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels // reduction_ratio, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.gamma = nn.Parameter(torch.tensor(0.1))  # Initialize gamma with a small value
+
+    def forward(self, x):
+        batch_size, channels, height, width = x.size()
+
+        # Project input tensors to query, key, and value
+        proj_query = self.query_conv(x).view(batch_size, -1, height * width).permute(0, 2, 1)  # B x (N) x C
+        proj_key = self.key_conv(x).view(batch_size, -1, height * width)  # B x C x (N)
+        energy = torch.bmm(proj_query, proj_key)  # Batch matrix multiplication
+        attention = torch.softmax(energy, dim=-1)  # Attention map
+        attention = attention / torch.sqrt(torch.tensor(channels).float())  # Normalize attention weights
+        proj_value = self.value_conv(x).view(batch_size, -1, height * width)  # B x C x (N)
+
+        # Apply attention to value
+        out = torch.bmm(attention.permute(0, 2, 1), proj_value)
+        out = out.view(batch_size, channels, height, width)
+
+        # Apply gamma to the attended feature map and add it to the original input
+        out = self.gamma * out + x
+
+        return out
 
 class DetectionModel(BaseModel):
     # YOLO detection model
