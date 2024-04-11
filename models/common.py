@@ -31,6 +31,40 @@ from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import copy_attr, smart_inference_mode
 
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class SelfAttention(nn.Module):
+    def __init__(self, in_channels, reduction_ratio=8):
+        super(SelfAttention, self).__init__()
+
+        self.query_conv = nn.Conv2d(in_channels, in_channels // reduction_ratio, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels // reduction_ratio, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.gamma = nn.Parameter(torch.tensor(0.1))  # Initialize gamma with a small value
+
+    def forward(self, x):
+        batch_size, channels, height, width = x.size()
+
+        # Project input tensors to query, key, and value
+        proj_query = self.query_conv(x).view(batch_size, -1, height * width).permute(0, 2, 1)  # B x (N) x C
+        proj_key = self.key_conv(x).view(batch_size, -1, height * width)  # B x C x (N)
+        energy = torch.bmm(proj_query, proj_key)  # Batch matrix multiplication
+        attention = F.softmax(energy, dim=-1)  # Attention map
+        attention = attention / torch.sqrt(torch.tensor(channels).float())  # Normalize attention weights
+        proj_value = self.value_conv(x).view(batch_size, -1, height * width)  # B x C x (N)
+
+        # Apply attention to value
+        out = torch.bmm(attention.permute(0, 2, 1), proj_value)
+        out = out.view(batch_size, channels, height, width)
+
+        # Apply gamma to the attended feature map and add it to the original input
+        out = self.gamma * out + x
+
+        return out
+
+
 def autopad(k, p=None, d=1):  # kernel, padding, dilation
     # Pad to 'same' shape outputs
     if d > 1:
