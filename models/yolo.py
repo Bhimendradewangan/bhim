@@ -516,15 +516,10 @@ class Panoptic(Detect):
         if self.training:
             return x, mc, p, s
         return (torch.cat([x, mc], 1), p, s) if self.export else (torch.cat([x[0], mc], 1), (x[1], mc, p, s))
-from common import SelfAttention
+    
 
 class BaseModel(nn.Module):
-
-    def __init__(self, in_channels, reduction_ratio=8):
-        super(BaseModel, self).__init__()
-        self.attention = SelfAttention(in_channels, reduction_ratio)
-
-
+    # YOLO base model
     def forward(self, x, profile=False, visualize=False):
         return self._forward_once(x, profile, visualize)  # single-scale inference, train
 
@@ -536,18 +531,10 @@ class BaseModel(nn.Module):
             if profile:
                 self._profile_one_layer(m, x, dt)
             x = m(x)  # run
-
-
-
-            # Apply self-attention mechanism after Conv layers
-            if isinstance(m, Conv):
-                x = self.attention(x)
-
             y.append(x if m.i in self.save else None)  # save output
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
         return x
-    
 
     def _profile_one_layer(self, m, x, dt):
         c = m == self.model[-1]  # is final layer, copy input as inplace fix
