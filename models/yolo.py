@@ -732,17 +732,30 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         if m in {
             Conv, AConv, ConvTranspose, 
             Bottleneck, SPP, SPPF, DWConv, BottleneckCSP, nn.ConvTranspose2d, DWConvTranspose2d, SPPCSPC, ADown,
-            RepNCSPELAN4, SPPELAN}:
+            RepNCSPELAN4, SPPELAN,C3,Focus}:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = make_divisible(c2 * gw, 8)
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, SPPCSPC}:
+            if m in {BottleneckCSP, SPPCSPC,C3}:
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
+        elif m is Add:
+            # print("ch[f]", f, ch[f[0]])
+            c2 = ch[f[0]]
+            args = [c2]
+        elif m is Add2:
+            c2 = ch[f[0]]
+            args = [c2, args[1]]
+        # elif m is CMAFF:
+        #     c2 = ch[f[0]]
+        #     args = [c2]
+        elif m is GPT:
+            c2 = ch[f[0]]
+            args = [c2]
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
         elif m is Shortcut:
