@@ -33,7 +33,7 @@ from utils.torch_utils import copy_attr, smart_inference_mode
 # YOLOv5 common modules
 
 import torch.nn.functional as F
-from utils.general import non_max_suppression, make_divisible, scale_coords, increment_path, xyxy2xywh
+from utils.general import non_max_suppression, make_divisible, increment_path, xyxy2xywh
 
 from torch.nn import init, Sequential
 
