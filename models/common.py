@@ -33,11 +33,7 @@ from utils.torch_utils import copy_attr, smart_inference_mode
 # YOLOv5 common modules
 
 import torch.nn.functional as F
-
-from utils.datasets import letterbox
-from utils.general import non_max_suppression, make_divisible, scale_coords, increment_path, xyxy2xywh, save_one_box
-from utils.plots import colors, plot_one_box
-from utils.torch_utils import time_synchronized
+from utils.general import non_max_suppression, make_divisible, scale_coords, increment_path, xyxy2xywh
 
 from torch.nn import init, Sequential
 
@@ -54,21 +50,6 @@ def DWConv(c1, c2, k=1, s=1, act=True):
     return Conv(c1, c2, k, s, g=math.gcd(c1, c2), act=act)
 
 
-class Convv(nn.Module):
-    # Standard convolution
-    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
-        super(Conv, self).__init__()
-        # print(c1, c2, k, s,)
-        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
-        self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
-
-    def forward(self, x):
-        # print("Conv", x.shape)
-        return self.act(self.bn(self.conv(x)))
-
-    def fuseforward(self, x):
-        return self.act(self.conv(x))
 
 
 class TransformerLayer(nn.Module):
@@ -118,7 +99,7 @@ class TransformerBlock(nn.Module):
 
 
 
-class C33(nn.Module):
+class C3(nn.Module):
     # CSP Bottleneck with 3 convolutions
     def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
         super(C3, self).__init__()
@@ -426,6 +407,7 @@ class Conv(nn.Module):
 
     def forward_fuse(self, x):
         return self.act(self.conv(x))
+
 
 
 class AConv(nn.Module):
