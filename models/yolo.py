@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
+
 from models.common import *
 from models.experimental import *
 from utils.general import LOGGER, check_version, check_yaml, make_divisible, print_args
@@ -729,10 +730,10 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                 args[j] = eval(a) if isinstance(a, str) else a  # eval strings
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
-        if m in {
+        if m in [
             Conv, AConv, ConvTranspose, 
             Bottleneck, SPP, SPPF, DWConv, BottleneckCSP, nn.ConvTranspose2d, DWConvTranspose2d, SPPCSPC, ADown,
-            RepNCSPELAN4, SPPELAN,C3,Focus}:
+            RepNCSPELAN4, SPPELAN,C3,Focus]:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = make_divisible(c2 * gw, 8)
